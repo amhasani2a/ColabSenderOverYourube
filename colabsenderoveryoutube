@@ -1,0 +1,81 @@
+import os
+import ipywidgets as widgets
+from IPython.display import display, clear_output
+from google.colab import drive
+from google.colab import files
+from IPython import get_ipython
+
+get_ipython().system('pip install -q --upgrade google-api-python-client oauth2client progressbar2')
+get_ipython().system('pip install -q git+https://github.com/tokland/youtube-upload.git')
+
+out = widgets.Output()
+
+source_dropdown = widgets.Dropdown(
+    options=['Direct Link', 'Google Drive', 'Upload Local File'],
+    value='Direct Link',
+    description='Video Source:'
+)
+
+path_input = widgets.Text(
+    value='',
+    placeholder='Enter URL or Google Drive Path',
+    description='Path/URL:'
+)
+
+title_input = widgets.Text(value='My Video', description='Title:')
+desc_input = widgets.Textarea(value='Description', description='Description:')
+tags_input = widgets.Text(value='tag1, tag2', description='Tags:')
+privacy_dropdown = widgets.Dropdown(
+    options=['public', 'private', 'unlisted'], 
+    value='private', 
+    description='Privacy:'
+)
+
+btn_mount = widgets.Button(description='Mount Google Drive', button_style='info')
+btn_secrets = widgets.Button(description='Upload client_secrets', button_style='warning')
+btn_start = widgets.Button(description='Start Upload Process', button_style='success')
+
+def mount_drive(b):
+    with out:
+        drive.mount('/content/drive')
+
+def upload_secrets(b):
+    with out:
+        uploaded = files.upload()
+        for fn in uploaded.keys():
+            os.rename(fn, 'client_secrets.json')
+
+def start_process(b):
+    with out:
+        clear_output()
+        source = source_dropdown.value
+        video_file = 'video.mp4'
+
+        if source == 'Direct Link':
+            url = path_input.value
+            get_ipython().system(f'wget -O "{video_file}" "{url}"')
+        elif source == 'Google Drive':
+            video_file = path_input.value
+        elif source == 'Upload Local File':
+            uploaded = files.upload()
+            video_file = list(uploaded.keys())[0]
+
+        cmd = f'youtube-upload --client-secrets="client_secrets.json" --title="{title_input.value}" --description="{desc_input.value}" --tags="{tags_input.value}" --privacy="{privacy_dropdown.value}" "{video_file}"'
+        get_ipython().system(cmd)
+
+btn_mount.on_click(mount_drive)
+btn_secrets.on_click(upload_secrets)
+btn_start.on_click(start_process)
+
+display(widgets.VBox([
+    btn_mount,
+    btn_secrets,
+    source_dropdown,
+    path_input,
+    title_input,
+    desc_input,
+    tags_input,
+    privacy_dropdown,
+    btn_start,
+    out
+]))
